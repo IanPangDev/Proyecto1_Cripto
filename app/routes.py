@@ -32,8 +32,11 @@ def login():
     session.clear()
     username = request.form["username"]
     password = request.form["password"]
-    private_key_path = os.path.join("app\\Keys", username+"private.pem")
-    public_key_path = os.path.join("app\\Keys", username+"public.pem")
+    key_dir = os.path.join("app", "keys")
+    private_key_path = os.path.join(key_dir, username + "private.pem")
+    public_key_path = os.path.join(key_dir, username + "public.pem")
+    if not os.path.exists(key_dir):
+        os.makedirs(key_dir)
     if not os.path.exists(private_key_path) or not os.path.exists(public_key_path):
         create_keys(password, private_key_path, public_key_path)
 
