@@ -17,14 +17,13 @@ def index():
 
 @bp.route("/chat")
 def chat():
-    return render_template("index.html")
-    # if 'symmetric_key' in session:
-    #     print("Chat iniciado con claves en sesión.")
-    #     return render_template("index.html",
-    #                             messages=session.get('messages', []))
-    # else:
-    #     print("No hay sesión iniciada, redirigiendo al inicio.")
-    #     return redirect("/")
+    if 'symmetric_key' in session:
+        print("Chat iniciado con claves en sesión.")
+        return render_template("index.html",
+                                messages=session.get('messages', []))
+    else:
+        print("No hay sesión iniciada, redirigiendo al inicio.")
+        return redirect("/")
 
 
 @bp.route("/login", methods=["POST"])
@@ -32,39 +31,26 @@ def login():
     session.clear()
     username = request.form["username"]
     password = request.form["password"]
-    key_dir = os.path.join("app", "keys")
-    private_key_path = os.path.join(key_dir, username + "private.pem")
-    public_key_path = os.path.join(key_dir, username + "public.pem")
-    if not os.path.exists(key_dir):
-        os.makedirs(key_dir)
-    if not os.path.exists(private_key_path) or not os.path.exists(public_key_path):
-        create_keys(password, private_key_path, public_key_path)
-
-    with open(private_key_path, "rb") as f:
-        private_key_data = f.read()
-    private_key = RSA.import_key(private_key_data, passphrase=password)
-
-    with open(public_key_path, "rb") as f:
-        public_key_data = f.read()
-    public_key = RSA.import_key(public_key_data)
+    private_key, public_key = create_keys(password)
 
     password = bytes(password, 'utf-8')
     salt = get_random_bytes(16)
     symmetric_key = pbkdf(password, salt, 32)
 
     session['unique_session_id'] = generate_unique_session_id()
-    session['private_key'] = private_key.export_key().decode()
-    session['public_key'] = public_key.export_key().decode()
+    session['private_key'] = private_key
+    session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
+    session['password'] = password
     session['messages'] = []
     session['username'] = username
 
     print("Usuario logueado, sesión iniciada con claves cargadas.")
     # Imprimir información en la terminal
     print("Clave privada RSA:")
-    print(private_key.export_key().decode())
+    print(private_key)
     print("\nClave pública RSA:")
-    print(public_key.export_key().decode())
+    print(public_key)
     print("\nSalt generado:", salt.hex())
     print("Clave simétrica derivada:", symmetric_key.hex())
 
@@ -76,16 +62,17 @@ def send_message():
     if 'symmetric_key' not in session:
         return jsonify({"error": "Debes iniciar sesión para enviar mensajes."}), 403
 
-    username = request.form["username"]
-    message = request.form["message"]
-    recipient = request.form["recipient"]
+    print("DATA: ", request.json)
+    username = request.json["username"]
+    message = request.json["message"]
+    recipient = request.json["recipient"]
     symmetric_key = bytes.fromhex(session['symmetric_key'])
-    private_key = RSA.import_key(session['private_key'].encode())
+    private_key = RSA.import_key(session['private_key'], passphrase=session['password'])
 
     message_hash = hash_message(message)
     signature = sign_message(message_hash, private_key)
     ciphertext, tag, nonce = encrypt_symmetric(message, symmetric_key)
-    public_key = RSA.import_key(session['public_key'].encode())
+    public_key = RSA.import_key(session['public_key'].decode())
     encrypted_symmetric_key = encrypt_asymmetric(symmetric_key, public_key)
 
     # Codificar datos binarios a Base64 para serialización en JSON

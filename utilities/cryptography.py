@@ -59,13 +59,9 @@ def pbkdf(password, salt, length):
     return kdf.derive(password)
 
 
-def create_keys(secret, private_key_path, public_key_path):
+def create_keys(secret):
     key = RSA.generate(2048)
     private_key = key.export_key(passphrase=secret)
     public_key = key.publickey().export_key()
-    with open(private_key_path, "wb") as f:
-        f.write(private_key)
-    with open(public_key_path, "wb") as f:
-        f.write(public_key)
-    print(f"Claves creadas y guardadas en: {private_key_path} y {public_key_path}")
+    return private_key, public_key
 
