@@ -131,7 +131,16 @@ button{
 .social i{
   margin-right: 4px;
 }
+.alert {
+        padding: 10px;
+        border-radius: 0px;
+        color: #fff;
+    }
 
+    .alert-error {
+        background-color: #f44336; /* Rojo */
+        border: 1px solid #d32f2f; /* Borde rojo oscuro */
+    }
     </style>
 </head>
 <body>
@@ -139,6 +148,15 @@ button{
         <div class="shape"></div>
         <div class="shape"></div>
     </div>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-error">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
     <form action="/login" method="POST">
         <h3>Iniciar sesión aquí</h3>
 

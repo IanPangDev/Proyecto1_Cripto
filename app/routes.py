@@ -1,7 +1,7 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, session
+from flask import Blueprint, render_template, request, jsonify, redirect, session, flash
 import base64
-import os
 from utilities.cryptography import *
+from utilities.utilities import *
 
 bp = Blueprint('main', __name__)
 
@@ -11,6 +11,7 @@ def index():
         print("Redireccionando al chat...")
         return redirect("/chat")
     else:
+        session.clear()
         print("Mostrando página de login...")
         return render_template("login.html")
 
@@ -20,7 +21,7 @@ def chat():
     if 'symmetric_key' in session:
         print("Chat iniciado con claves en sesión.")
         return render_template("index.html",
-                                messages=session.get('messages', []))
+                                messages=session.get('messages'), users=get_users(session['username']))
     else:
         print("No hay sesión iniciada, redirigiendo al inicio.")
         return redirect("/")
@@ -28,7 +29,10 @@ def chat():
 
 @bp.route("/login", methods=["POST"])
 def login():
-    session.clear()
+    if request.form["username"] in get_users():
+        flash('Error: El nombre de usuario ya está en uso.')
+        return render_template("login.html")
+
     username = request.form["username"]
     password = request.form["password"]
     private_key, public_key = create_keys(password)
