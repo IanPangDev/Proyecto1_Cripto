@@ -1,6 +1,10 @@
 import os
 from re import search, findall
 
+"""
+Scripts con algunas funciones extras
+"""
+
 def get_users(username=''):
     session_dir = 'flask_session'
     usuarios = []

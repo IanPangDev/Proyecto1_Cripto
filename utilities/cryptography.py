@@ -9,6 +9,10 @@ from Cryptodome.Signature import pkcs1_15
 from Cryptodome.Hash import SHA256
 from uuid import uuid4
 
+"""
+Scritp que se encarga de la parte criptografica
+"""
+
 def generate_unique_session_id():
     return str(uuid4())
 

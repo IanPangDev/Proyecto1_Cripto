@@ -1,0 +1,9 @@
+cryptography==43.0.1
+Flask==3.0.3
+Flask-Admin==1.6.1
+Flask-Session==0.8.0
+Jinja2==3.1.4
+pandas==2.2.2
+pycryptodomex==3.21.0
+pysqlitecipher==0.11
+python-dotenv==1.0.1

@@ -2,6 +2,11 @@ from flask import Blueprint, render_template, request, jsonify, redirect, sessio
 import base64
 from utilities.cryptography import *
 from utilities.utilities import *
+from app.Models.DBA import *
+
+"""
+Scritp que maneja las rutas de la pagina
+"""
 
 bp = Blueprint('main', __name__)
 
@@ -46,7 +51,6 @@ def login():
     session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
     session['password'] = password
-    session['messages'] = []
     session['username'] = username
 
     print("Usuario logueado, sesión iniciada con claves cargadas.")
@@ -88,7 +92,6 @@ def send_message():
     message_info = {
         "username": username,
         "recipient": recipient,
-        "message": message,
         "ciphertext": ciphertext_b64,
         "tag": tag_b64,
         "nonce": nonce_b64,
@@ -96,7 +99,8 @@ def send_message():
         "message_hash": message_hash,
         "signature": base64.b64encode(signature).decode()
     }
-    session['messages'].append(message_info)
+
+    store_message(message_info)
 
     print("\nMensaje cifrado RSA:", encrypted_symmetric_key_b64)
     print("Mensaje descifrado:", message)
@@ -116,5 +120,6 @@ def get_messages():
 @bp.route("/logout", methods=['POST'])
 def logout():
     print("Cerrando sesión y limpiando datos...")
+    delete_messages(session["username"])
     session.clear()
     return redirect("/")
