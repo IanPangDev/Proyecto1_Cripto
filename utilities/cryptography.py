@@ -65,7 +65,7 @@ def pbkdf(password, salt, length):
 
 def create_keys(secret):
     key = RSA.generate(2048)
-    private_key = key.export_key(passphrase=2025)
+    private_key = key.export_key(passphrase=secret)
     public_key = key.publickey().export_key()
     return private_key, public_key
 
