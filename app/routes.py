@@ -40,19 +40,48 @@ def login():
 
     username = request.form["username"]
     password = request.form["password"]
-    private_key, public_key = create_keys(password)
+    generate_key = 'generate_key' in request.form
+    key_files = request.files.getlist('keys')
+    private_key_file = None
+    public_key_file = None
+    for file in key_files:
+        if file.filename.endswith("private_key.pem"):
+            private_key_file = file
+        elif file.filename.endswith("public_key.pem"):
+            public_key_file = file
 
+    # Verificar si el usuario subió una clave privada o eligió generar una nueva
+    if private_key_file and private_key_file.filename != '':
+        private_key = private_key_file.read()
+        public_key = public_key_file.read()
+        flash('Clave privada y pública cargadas correctamente.')
+    elif generate_key:
+        # Si el usuario elige generar una nueva clave
+        private_key, public_key = create_keys(password)
+
+        # Guardar la clave privada en la carpeta "Keys"
+        keys_dir = os.path.join(os.getcwd(), 'Keys')
+        if not os.path.exists(keys_dir):
+            os.makedirs(keys_dir)
+        private_key_path = os.path.join(keys_dir, f"{username}_private_key.pem")
+        with open(private_key_path, 'wb') as f:
+            f.write(private_key)
+        public_key_path = os.path.join(keys_dir, f"{username}_public_key.pem")
+        with open(public_key_path, 'wb') as f:
+            f.write(public_key)
+        flash('Nueva clave privada generada.')
+    else:
+        flash('Error: Debes subir una clave privada o generar una nueva.')
+        return redirect("/login")
     password = bytes(password, 'utf-8')
     salt = get_random_bytes(16)
     symmetric_key = pbkdf(password, salt, 32)
-
     session['unique_session_id'] = generate_unique_session_id()
     session['private_key'] = private_key
     session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
     session['password'] = password
     session['username'] = username
-
     print("Usuario logueado, sesión iniciada con claves cargadas.")
     # Imprimir información en la terminal
     print("Clave privada RSA:")
@@ -61,9 +90,7 @@ def login():
     print(public_key)
     print("\nSalt generado:", salt.hex())
     print("Clave simétrica derivada:", symmetric_key.hex())
-
     return redirect("/chat")
-
 
 @bp.route("/send_message", methods=["POST"])
 def send_message():

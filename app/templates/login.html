@@ -157,15 +157,26 @@ button{
             {% endfor %}
         {% endif %}
     {% endwith %}
-    <form action="/login" method="POST">
+    <form action="/login" method="POST" enctype="multipart/form-data">
         <h3>Iniciar sesión aquí</h3>
 
+        <!-- Nombre de usuario -->
         <label for="username">Username</label>
         <input type="text" placeholder="Nombre" id="username" name="username" required>
 
+        <!-- Contraseña -->
         <label for="password">Password</label>
         <input type="password" placeholder="Contraseña" id="password" name="password" required>
 
+        <!-- Opción para cargar la clave privada si ya la tiene -->
+        <label for="keys">Selecciona las Claves (usa Ctrl o Shift para seleccionar múltiples archivos)</label>
+        <input type="file" id="keys" name="keys" accept=".pem" multiple required>
+        
+        <!-- Checkbox para generar una nueva clave si no tiene una -->
+        <input type="checkbox" id="generate_key" name="generate_key">
+        <label for="generate_key">Generar nuevas claves</label>
+
+        <!-- Botón de acceso -->
         <button type="submit">Acceso</button>
     </form>
 </body>
