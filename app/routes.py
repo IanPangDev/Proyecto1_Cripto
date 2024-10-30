@@ -44,7 +44,6 @@ def handle_connect():
     """
     session['unique_session_id'] = request.sid
     usuarios[session['username']] = session['unique_session_id']
-
     join_room(session['unique_session_id'])
 
 @bp.route("/chat")
@@ -83,7 +82,7 @@ def login():
     elif not('generate_key' in request.form) and (all(f.filename == '' for f in request.files.getlist('keys'))):
         return jsonify({'success': False, 'message': 'Error: No enviaste archivos o no seleccionaste la casilla.'})
     
-    # Decifra la información cifrada del usuario
+    # Decifra la información cifrada del usuario (excepto el "secreto")
     try:
         username = decrypt_asymmetric(base64.b64decode(request.form['username']),
                                       RSA.import_key(sv_private, passphrase=getenv("APP_KEY")),
@@ -138,10 +137,8 @@ def login():
 
     # Configuración de la sesión
     password = bytes(password, 'utf-8')
-    secreto = bytes(secreto, 'utf-8')
     salt = get_random_bytes(16)
-    #perdoneme la vida
-    symmetric_key = pbkdf(secreto, salt, 32)
+    symmetric_key = pbkdf(password, salt, 32)
     session['private_key'] = private_key
     session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
@@ -198,8 +195,7 @@ def send_message(data):
     recipient = data.get("recipient")
     symmetric_key = bytes.fromhex(session['symmetric_key'])
     private_key = RSA.import_key(session['private_key'], passphrase=session['password'])
-    #no  pudimos, no sabemos javascript
-    #public_otro_wey =
+
     # Cifrado simetrico y firma
     message_hash = hash_message(message)
     signature = sign_message(message_hash, private_key)
