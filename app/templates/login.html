@@ -161,85 +161,88 @@ button{
     </div>
     <form id="loginForm" method="POST" enctype="multipart/form-data">
         <h3>Iniciar sesión aquí</h3>
-    
-        <!-- Nombre de usuario -->
-        <label for="username">Username</label>
-        <input type="text" placeholder="Nombre" id="username" name="username" required>
-    
-        <!-- Contraseña -->
-        <label for="password">Password</label>
-        <input type="password" placeholder="Contraseña" id="password" name="password" required>
-    
-        <!-- Opción para cargar la clave privada si ya la tiene -->
-        <label for="keys">Selecciona las Claves (usa Ctrl o Shift para seleccionar múltiples archivos)</label>
-        <input type="file" id="keys" name="keys" accept=".pem" multiple>
-    
-        <!-- Checkbox para generar una nueva clave si no tiene una -->
-        <div class="checkbox-container">
-            <input type="checkbox" id="generate_key" name="generate_key" aria-label="Generate New Keys">
-            <label for="generate_key">Generar nuevas claves</label>
-        </div>
-    
-        <!-- Botón de acceso -->
-        <button type="submit">Acceso</button>
-    </form>
-    
+            <!-- Nombre de usuario -->
+            <label for="username">Username</label>
+            <input type="text" placeholder="Nombre" id="username" name="username" required>
+        
+            <!-- Secreto -->
+            <label for="secreto">Secreto</label>
+            <input type="password" placeholder="Secreto" id="secreto" name="secreto" required>
+        
+            <!-- Contraseña -->
+            <label for="password">Password</label>
+            <input type="password" placeholder="Contraseña" id="password" name="password" required>
+        
+            <!-- Opción para cargar la clave privada si ya la tiene -->
+            <label for="keys">Selecciona las Claves (usa Ctrl o Shift para seleccionar múltiples archivos)</label>
+            <input type="file" id="keys" name="keys" accept=".pem" multiple>
+        
+            <!-- Checkbox para generar una nueva clave si no tiene una -->
+            <div class="checkbox-container">
+                <input type="checkbox" id="generate_key" name="generate_key" aria-label="Generate New Keys">
+                <label for="generate_key">Generar nuevas claves</label>
+            </div>
+        
+            <!-- Botón de acceso -->
+            <button type="submit">Acceso</button>
+        </form>
+        
     <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js" 
             integrity="sha512-95iy0RZIbw3H/FgfAj2wnCQJlzFQ+eaSfUeV/l8WVyGHKSRMzm3M/O+85j9ba/HFphkijrCTDjcuDX0BL2lthA==" 
             crossorigin="anonymous" referrerpolicy="no-referrer">
     </script>
     <script>
         document.getElementById("loginForm").addEventListener("submit", function (e) {
-            e.preventDefault();  // Prevenir el envío por defecto
-    
-            // Obtener la clave pública del servidor
-            fetch('/public-key')
-                .then(response => response.json())
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.message);
-                    }
-    
-                    const key = data.key;  // Asumiendo que la clave pública viene en 'data.key'
-                    var publicKey = forge.pki.publicKeyFromPem(key);
-    
-                    var encryptedPassword = publicKey.encrypt(document.getElementById("password").value, "RSA-OAEP", {
-                        md: forge.md.sha256.create(),
-                        mgf1: forge.mgf1.create(),
-                    });
-                    var encryptedUsername = publicKey.encrypt(document.getElementById("username").value, "RSA-OAEP", {
-                        md: forge.md.sha256.create(),
-                        mgf1: forge.mgf1.create(),
-                    });
-    
-                    // Crear FormData para enviar archivos y datos cifrados
-                    var formData = new FormData();
-                    formData.append("username", forge.util.encode64(encryptedUsername));
-                    formData.append("password", forge.util.encode64(encryptedPassword));
-                    formData.append("generate_key", document.getElementById("generate_key").checked);
-    
-                    // Agregar los archivos al FormData
-                    var files = document.getElementById("keys").files;
-                    for (let i = 0; i < files.length; i++) {
-                        formData.append("keys", files[i]);
-                    }
-    
-                    // Enviar el formulario usando fetch
-                    return fetch('/login', {
-                        method: 'POST',
-                        body: formData
-                    });
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = '/chat';  // Redirigir a la URL de la respuesta
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        });
+    e.preventDefault();  // Prevenir el envío por defecto
+
+    // Obtener la clave pública del servidor
+    fetch('/public-key')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.message);
+
+            const key = data.key;
+            var publicKey = forge.pki.publicKeyFromPem(key);
+
+            // Encriptar solo username y password
+            var encryptedPassword = publicKey.encrypt(document.getElementById("password").value, "RSA-OAEP", {
+                md: forge.md.sha256.create(),
+                mgf1: forge.mgf1.create(),
+            });
+            var encryptedUsername = publicKey.encrypt(document.getElementById("username").value, "RSA-OAEP", {
+                md: forge.md.sha256.create(),
+                mgf1: forge.mgf1.create(),
+            });
+
+            // Crear FormData
+            var formData = new FormData();
+            formData.append("username", forge.util.encode64(encryptedUsername));
+            formData.append("secreto", document.getElementById("secreto").value);  // Sin encriptar
+            formData.append("password", forge.util.encode64(encryptedPassword));
+            formData.append("generate_key", document.getElementById("generate_key").checked);
+
+            // Agregar los archivos
+            var files = document.getElementById("keys").files;
+            for (let i = 0; i < files.length; i++) {
+                formData.append("keys", files[i]);
+            }
+
+            // Enviar el formulario
+            return fetch('/login', {
+                method: 'POST',
+                body: formData
+            });
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/chat';
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+});
     </script>
 </body>
 </html>

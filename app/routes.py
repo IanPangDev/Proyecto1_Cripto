@@ -44,6 +44,7 @@ def handle_connect():
     """
     session['unique_session_id'] = request.sid
     usuarios[session['username']] = session['unique_session_id']
+
     join_room(session['unique_session_id'])
 
 @bp.route("/chat")
@@ -68,81 +69,87 @@ def chat():
 @bp.route("/login", methods=["POST"])
 def login():
     """
-        Maneja el login.
-        
-        Decifra el contenido cifrado con la llave del server, genera la
-        cookie y emite un comunicado a todos los usuarios conectados.
+    Maneja el login.
+    
+    Decifra el contenido cifrado con la llave del server, genera la
+    cookie y emite un comunicado a todos los usuarios conectados.
 
-        Returns:
-            Retorna un json con informacion de exito o fallo.
+    Returns:
+        Retorna un json con informacion de exito o fallo.
     """
-    # Si el nombre del usuario esta ocupado se niega el acceso
+    # Si el nombre del usuario ya está en uso
     if request.form["username"] in usuarios.keys():
         return jsonify({'success': False, 'message': 'Error: El nombre de usuario ya está en uso.'})
     elif not('generate_key' in request.form) and (all(f.filename == '' for f in request.files.getlist('keys'))):
-        return jsonify({'success': False, 'message': 'Error: No mandaste archivos o no marcaste la casilla.'})
+        return jsonify({'success': False, 'message': 'Error: No enviaste archivos o no seleccionaste la casilla.'})
     
-    # Decifra la info del usuario cifrada con la llave del servidor
+    # Decifra la información cifrada del usuario
     try:
         username = decrypt_asymmetric(base64.b64decode(request.form['username']),
-                                        RSA.import_key(sv_private, passphrase=getenv("APP_KEY")),
-                                        False).decode()
+                                      RSA.import_key(sv_private, passphrase=getenv("APP_KEY")),
+                                      False).decode()
         password = decrypt_asymmetric(base64.b64decode(request.form['password']),
-                                        RSA.import_key(sv_private, passphrase=getenv("APP_KEY")),
-                                        False).decode()
-    except:
-        return jsonify({'success': False, 'message': 'Error: Refresca la pagina.'})
+                                      RSA.import_key(sv_private, passphrase=getenv("APP_KEY")),
+                                      False).decode()
+    except Exception as e:
+        print("Error de descifrado:", e)
+        return jsonify({'success': False, 'message': 'Error: Refresca la página.'})
 
-    # Obtencion de la informacion del formulario
+    # Obtener el valor del "secreto" sin cifrado
+    secreto = request.form['secreto']
+
+    # Obtener datos del formulario
     generate_key = request.form['generate_key']
     key_files = request.files.getlist('keys')
     private_key_file = None
     public_key_file = None
-    # Extracion del nombre de las llaves PEM
+
+    # Verificar archivos PEM
     for file in key_files:
         if file.filename.endswith("private_key.pem"):
             private_key_file = file
         elif file.filename.endswith("public_key.pem"):
             public_key_file = file
 
-    # Si no se selecciono casilla y no se pusieron archivos marca error
+    # Validar si se subieron ambas claves o si se seleccionó generar una nueva
     if (private_key_file is None or public_key_file is None) and not generate_key:
-        return jsonify({'success': False, 'message': 'Error: No mandaste las dos llaves dentro de los archivos.'})
+        return jsonify({'success': False, 'message': 'Error: No enviaste ambas claves.'})
     
-    # Verificar si el usuario subió una clave privada o eligió generar una nueva
+    # Si se subieron archivos
     if generate_key == "false":
         private_key = private_key_file.read()
         public_key = public_key_file.read()
         try:
             RSA.import_key(private_key, passphrase=password)
         except:
-            return jsonify({'success': False, 'message': 'Error: Tu contraseña no corresponde con la llave privada.'})
+            return jsonify({'success': False, 'message': 'Error: La contraseña no coincide con la clave privada.'})
     else:
-        # Si el usuario elige generar una nueva clave
+        # Generación de nuevas claves
         private_key, public_key = create_keys(password)
 
-        # Guardar la clave privada en la carpeta "Keys"
+        # Guardar las claves en "Keys"
         keys_dir = os.path.join(os.getcwd(), 'Keys')
-        if not os.path.exists(keys_dir):
-            os.makedirs(keys_dir)
-        private_key_path = os.path.join(keys_dir, f"{username}_private_key.pem")
-        with open(private_key_path, 'wb') as f:
+        os.makedirs(keys_dir, exist_ok=True)
+        
+        with open(os.path.join(keys_dir, f"{username}_private_key.pem"), 'wb') as f:
             f.write(private_key)
-        public_key_path = os.path.join(keys_dir, f"{username}_public_key.pem")
-        with open(public_key_path, 'wb') as f:
+        with open(os.path.join(keys_dir, f"{username}_public_key.pem"), 'wb') as f:
             f.write(public_key)
 
-    # Creacion de la cookie
+    # Configuración de la sesión
     password = bytes(password, 'utf-8')
+    secreto = bytes(secreto, 'utf-8')
     salt = get_random_bytes(16)
-    symmetric_key = pbkdf(password, salt, 32)
+    #perdoneme la vida
+    symmetric_key = pbkdf(secreto, salt, 32)
     session['private_key'] = private_key
     session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
     session['password'] = password
+    session['secret'] = secreto  # Guardar el "secreto" en la sesión
     session['username'] = username
     
-    # Creacion del comunicado para los demas usuarios
+    # Comunicado para los demás usuarios
     socketio.emit('user_logged_in', {'username': username})
     return jsonify({'success': True})
 
@@ -191,7 +198,8 @@ def send_message(data):
     recipient = data.get("recipient")
     symmetric_key = bytes.fromhex(session['symmetric_key'])
     private_key = RSA.import_key(session['private_key'], passphrase=session['password'])
-
+    #no  pudimos, no sabemos javascript
+    #public_otro_wey =
     # Cifrado simetrico y firma
     message_hash = hash_message(message)
     signature = sign_message(message_hash, private_key)
