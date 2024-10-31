@@ -144,7 +144,7 @@ def login():
     session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
     session['password'] = password
-    session['secret'] = secreto  # Guardar el "secreto" en la sesión
+    session['secret'] = secreto
     session['username'] = username
     
     # Comunicado para los demás usuarios
@@ -178,7 +178,6 @@ def download_keys():
     zip_buffer.seek(0)
 
     return send_file(zip_buffer, as_attachment=True, download_name=zip_filename, mimetype='application/zip')
-
 @socketio.on('send_message')
 def send_message(data):
     """
