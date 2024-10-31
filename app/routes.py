@@ -137,8 +137,9 @@ def login():
 
     # Configuración de la sesión
     password = bytes(password, 'utf-8')
+    secreto = bytes(secreto, 'utf-8')
     salt = get_random_bytes(16)
-    symmetric_key = pbkdf(password, salt, 32)
+    symmetric_key = pbkdf(secreto, salt, 32)
     session['private_key'] = private_key
     session['public_key'] = public_key
     session['symmetric_key'] = symmetric_key.hex()
